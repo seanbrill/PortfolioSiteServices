@@ -3,7 +3,7 @@ const { LogEvent } = require("../LogEvent");
 
 module.exports = async function (context, req) {
   try {
-    let ip = (req.headers["x-forwarded-for"] || req.headers["x-client-ip"] || req.ip) ?? "?";
+    let ip = (req.headers["x-forwarded-for"] || req.headers["x-client-ip"] || req.ip).split(":")[0] ?? "?";
     let email = req.body.email;
     let subject = req.body.subject;
     let givenName = req.body.givenName;

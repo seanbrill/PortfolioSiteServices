@@ -2,7 +2,7 @@ const { GetConnection } = require("./DatabaseController");
 const { GetGeoLocationIP } = require("./RadarController");
 const sql = require("mssql");
 const { uuid } = require("./utils");
-const http = require("http");
+//const http = require("http");
 
 /**
  * Searches the Events table for a name gained from the smtp evemt with the
@@ -12,39 +12,57 @@ const http = require("http");
  * @returns {Promise} A promise that resolves with the result of the database operation
  */
 module.exports.LogEvent = async function LogEvent(req, event = null) {
-  //generate a unique id
-  let event_id = uuid();
-  //get host and ip address
-  let ip = (req.headers["x-forwarded-for"] || req.headers["x-client-ip"] || req.ip) ?? "?";
-  let host = req.headers["host"] ?? "NULL";
-  event = event ?? req.body.event ?? "unkown";
+  try {
+    //generate a unique id
+    let event_id = uuid();
+    //get host and ip address
+    let ip = (req.headers["x-forwarded-for"] || req.headers["x-client-ip"] || req.ip).split(":")[0] ?? "?";
+    let host = req.headers["host"] ?? "NULL";
+    event = event ?? req.body.event ?? "unkown";
 
-  let givenName = req.body.givenName ?? null;
-  if (!givenName || givenName.trim().length === 0) {
-    //try to find name from a previous event
-    givenName = (await FindName(ip)) ?? "NULL";
-  } else {
-    //update existing rows to include the given name where givenName was null before
-    FillMissingNames(ip, givenName);
+    let givenName = req.body.givenName ?? null;
+    if (!givenName || givenName.trim().length === 0) {
+      //try to find name from a previous event
+      givenName = (await FindName(ip)) ?? "NULL";
+    } else {
+      //update existing rows to include the given name where givenName was null before
+      FillMissingNames(ip, givenName);
+    }
+
+    //use radar api to get geo location info
+    let geo_response = await GetGeoLocationIP(FormatIP(ip)); //trim a comma for the geo query if present
+    let data = null;
+    if (geo_response.success && geo_response.response.address) data = geo_response.response.address;
+
+    let lat = data?.latitude ?? 0;
+    let lng = data?.longitude ?? 0;
+    let city = data?.city ?? "NULL";
+    let state = data?.state ?? "NULL";
+    let postalCode = data?.postalCode ?? "NULL";
+    let country = data?.country ?? "NULL";
+    let dma = data?.dma ?? "NULL";
+    let dmaCode = data?.dmaCode ?? 0;
+
+    //capture time of the event
+    let timestamp = new Date().toISOString();
+
+    await InsertEvent(event_id, ip, host, event, givenName, lat, lng, city, state, postalCode, country, dma, dmaCode, timestamp);
+  } catch (error) {
+    return error.toString();
   }
-
-  //use radar api to get geo location info
-  let geo_response = await GetGeoLocationIP(ip);
-  let data = null;
-  if (geo_response.success) data = geo_response.response;
-  let lat = data.latitude ?? 0;
-  let lng = data.longitude ?? 0;
-  let city = data.city ?? "NULL";
-  let state = data.state ?? "NULL";
-  let postalCode = data.postalCode ?? "NULL";
-  let country = data.country ?? "NULL";
-  let dma = data.dma ?? "NULL";
-  let dmaCode = data.dmaCode ?? 0;
-  //capture time of the event
-  let timestamp = new Date().toISOString();
-
-  let requestResult = await InsertEvent(event_id, ip, host, event, givenName, lat, lng, city, state, postalCode, country, dma, dmaCode, timestamp);
 };
+
+/**
+ *In the event that a proxy is being used we need to get the last ip from the trace
+ * @param {string} ip - The ip address of the incomming request
+ */
+function FormatIP(ip) {
+  if (ip.includes(",")) {
+    return ip.split(",").pop().trim();
+  } else {
+    return ip;
+  }
+}
 
 /**
  * Searches the Events table for a name gained from the smtp evemt with the
