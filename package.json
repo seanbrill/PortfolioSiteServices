@@ -1,0 +1,17 @@
+{
+  "name": "portfoliositeservices",
+  "version": "1.0.0",
+  "description": "backend node js services for my portfolio site, more advanced analytics, and an api for smtp messages for the new contact form",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "mssql": "^10.0.2",
+    "nodemailer": "^6.9.13",
+    "xhr2": "^0.2.1"
+  }
+}
