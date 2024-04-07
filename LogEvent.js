@@ -76,13 +76,9 @@ function FindName(ip) {
     try {
       let connection = await GetConnection();
       if (!connection) return resolve({ success: false, error: "not connected to the database" });
-      let results = await sql.query(`select givenName from Events where ip=${ip}`);
+      let results = await sql.query(`select givenName from Events where ip='${ip}'`);
       if (!results.error) {
-        /*
-        might need to adjust the code if a user starts submitting multiple names
-        and messages through the api
-        */
-        return resolve(results.recordset[0]);
+        return resolve(results.recordset[0].givenName);
       }
     } catch (error) {
       return resolve(null);
